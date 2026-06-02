@@ -177,7 +177,7 @@ input,select{font-family:inherit;color:var(--t1)}
 .list-row.done-row .list-name{text-decoration:line-through;color:var(--t3)}
 .list-meta{font-size:11px;color:var(--t3);white-space:nowrap;font-family:var(--mono)}
 .list-amt{font-size:13px;font-weight:600;font-family:var(--mono)}
-.list-del{background:transparent;border:none;color:var(--t3);font-size:13px;cursor:pointer;padding:0 4px;opacity:0;transition:opacity .15s}
+.list-del{background:transparent;border:none;color:var(--t3);font-size:13px;cursor:pointer;padding:0 4px;opacity:.45;transition:opacity .15s}
 .list-row:hover .list-del{opacity:1}
 .list-foot{display:flex;justify-content:space-between;padding:.55rem 1rem;border-top:1px solid var(--border);background:rgba(0,0,0,.12);font-size:12px}
 .list-empty{padding:1rem;text-align:center;font-size:13px;color:var(--t3)}
@@ -612,7 +612,24 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
   </div>
 </div>
 
-<!-- Add Shopping Modal -->
+<!-- Edit Bill Modal -->
+<div class="overlay" id="bill-edit-modal" onclick="if(event.target===this)closeBillEditModal()">
+  <div class="modal">
+    <div class="modal-title">Edit bill</div>
+    <div class="field"><label>Bill name</label><input id="ble-name" placeholder="e.g. Netflix"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="field"><label>Amount ($)</label><input id="ble-amt" type="number" placeholder="0" step="0.01"></div>
+      <div class="field"><label>Due date</label><input id="ble-due" placeholder="Day number or Everyday" type="text"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeBillEditModal()">Cancel</button>
+      <button class="btn btn-ghost" style="color:var(--red);border-color:rgba(239,68,68,.3)" onclick="deleteBillFromEdit()">Delete</button>
+      <button class="btn btn-primary" onclick="saveEditBill()">Save</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="overlay" id="shop-modal" onclick="if(event.target===this)closeShopModal()">
   <div class="modal">
     <div class="modal-title">Add to shopping list</div>
@@ -1150,6 +1167,36 @@ function editRate(){
 // ── Bills ─────────────────────────────────────────────────────
 function openBillModal(){document.getElementById('bill-modal').classList.add('open');setTimeout(()=>document.getElementById('bl-name').focus(),80);}
 function closeBillModal(){document.getElementById('bill-modal').classList.remove('open');}
+
+let editingBillId=null;
+function openBillEditModal(id){
+  const b=bills.find(x=>x.id===id);if(!b)return;
+  editingBillId=id;
+  document.getElementById('ble-name').value=b.name||'';
+  document.getElementById('ble-amt').value=b.amt||'';
+  document.getElementById('ble-due').value=b.due||'';
+  document.getElementById('bill-edit-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('ble-name').focus(),80);
+}
+function closeBillEditModal(){document.getElementById('bill-edit-modal').classList.remove('open');editingBillId=null;}
+function saveEditBill(){
+  if(!editingBillId)return;
+  const name=document.getElementById('ble-name').value.trim();
+  const amt=parseFloat(document.getElementById('ble-amt').value)||0;
+  const dueRaw=document.getElementById('ble-due').value.trim();
+  const due=dueRaw&&!isNaN(dueRaw)?parseInt(dueRaw):dueRaw;
+  if(!name)return;
+  bills=bills.map(b=>b.id===editingBillId?{...b,name,amt,due}:b);
+  lss('monthly-bills',bills);
+  closeBillEditModal();renderBills();
+}
+function deleteBillFromEdit(){
+  if(!editingBillId)return;
+  if(!confirm('Delete this bill?'))return;
+  bills=bills.filter(b=>b.id!==editingBillId);
+  lss('monthly-bills',bills);
+  closeBillEditModal();renderBills();
+}
 function saveBill(){
   const name=document.getElementById('bl-name').value.trim();
   const amt=parseFloat(document.getElementById('bl-amt').value)||0;
@@ -1196,7 +1243,8 @@ function renderBills(){
       <span class="list-name">${b.name}</span>
       ${b.due||b.due===0?`<span class="list-meta">${fmtDue(b.due)}</span>`:''}
       <span class="list-amt" style="color:${isPaid(b)?'var(--t3)':'var(--red)'}">$${b.amt}</span>
-      <button class="list-del" onclick="deleteBill('${b.id}')"><i class="ti ti-x"></i></button>
+      <button class="list-del" onclick="openBillEditModal('${b.id}')" title="Edit"><i class="ti ti-pencil"></i></button>
+      <button class="list-del" onclick="deleteBill('${b.id}')" title="Delete"><i class="ti ti-x"></i></button>
     </div>`).join('')
     +`<div class="list-foot"><span style="color:var(--t3)">Total/month</span><span style="font-family:var(--mono);font-weight:600;color:var(--red)">$${total.toFixed(0)}</span></div>`;
 }
