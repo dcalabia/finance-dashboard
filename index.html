@@ -594,7 +594,7 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
     <div class="field"><label>Bill name</label><input id="bl-name" placeholder="e.g. Netflix"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <div class="field"><label>Amount ($)</label><input id="bl-amt" type="number" placeholder="0" step="0.01"></div>
-      <div class="field"><label>Due date</label><input id="bl-due" placeholder="e.g. May 1" type="text"></div>
+      <div class="field"><label>Due date</label><input id="bl-due" placeholder="Day number (e.g. 15) or Everyday" type="text"></div>
     </div>
     <div class="modal-btns">
       <button class="btn btn-ghost" onclick="closeBillModal()">Cancel</button>
@@ -704,19 +704,19 @@ const GROC_CATS={
 };
 
 const DEFAULT_BILLS=[
-  {id:'b1',name:'Good Life Fitness',amt:61,due:'May 1',paid:false},
-  {id:'b2',name:'OSAP',amt:0,due:'May 1',paid:false},
-  {id:'b3',name:'Credit Card Fee',amt:200,due:'May 4',paid:false},
-  {id:'b4',name:'TradingView',amt:30,due:'May 5',paid:false},
-  {id:'b5',name:'Phone Storage',amt:10,due:'May 8',paid:false},
-  {id:'b6',name:'Phone Bill',amt:0,due:'May 13',paid:false},
-  {id:'b7',name:'Insurance',amt:0,due:'May 16',paid:false},
-  {id:'b8',name:'ChatGPT',amt:32,due:'May 19',paid:false},
-  {id:'b9',name:'WhisperFlow',amt:18,due:'May 10',paid:false},
-  {id:'b10',name:'Apple+',amt:18,due:'May 18',paid:false},
-  {id:'b11',name:'Life Insurance',amt:78,due:'May 26',paid:false},
+  {id:'b1',name:'Good Life Fitness',amt:61,due:1,paid:false},
+  {id:'b2',name:'OSAP',amt:0,due:1,paid:false},
+  {id:'b3',name:'Credit Card Fee',amt:200,due:4,paid:false},
+  {id:'b4',name:'TradingView',amt:30,due:5,paid:false},
+  {id:'b5',name:'Phone Storage',amt:10,due:8,paid:false},
+  {id:'b6',name:'Phone Bill',amt:0,due:13,paid:false},
+  {id:'b7',name:'Insurance',amt:0,due:16,paid:false},
+  {id:'b8',name:'ChatGPT',amt:32,due:19,paid:false},
+  {id:'b9',name:'WhisperFlow',amt:18,due:10,paid:false},
+  {id:'b10',name:'Apple+',amt:18,due:18,paid:false},
+  {id:'b11',name:'Life Insurance',amt:78,due:26,paid:false},
   {id:'b12',name:'Transportation',amt:50,due:'Everyday',paid:false},
-  {id:'b13',name:'Haircut',amt:60,due:'May 12',paid:false},
+  {id:'b13',name:'Haircut',amt:60,due:12,paid:false},
 ];
 
 const DEFAULT_SHOP=[
@@ -759,6 +759,22 @@ function loadAll(){
   expenses=ls('expenses:'+viewDate)||[];
   payments=ls('fin-payments:'+viewDate)||[];
   bills=ls('monthly-bills');if(!bills||!bills.length)bills=[...DEFAULT_BILLS];
+  // Migrate: strip hardcoded month names from due dates (e.g. "May 1" → 1)
+  // and convert legacy paid:true → paidMonth for current month
+  const nowMo=`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  bills=bills.map(b=>{
+    let due=b.due;
+    if(typeof due==='string'&&due!=='Everyday'){
+      const m=due.match(/\d+$/);
+      if(m)due=parseInt(m[0]);
+    }
+    // Migrate legacy paid boolean to paidMonth
+    let paidMonth=b.paidMonth||null;
+    if(b.paid&&!paidMonth)paidMonth=nowMo;
+    const {paid,...rest}=b;
+    return{...rest,due,paidMonth};
+  });
+  lss('monthly-bills',bills);
   shopItems=ls('shopping-list');if(!shopItems||!shopItems.length)shopItems=[...DEFAULT_SHOP];
   grocItems=ls('groceries')||[];
   ltg=ls('ltg')||{};
@@ -1128,29 +1144,49 @@ function closeBillModal(){document.getElementById('bill-modal').classList.remove
 function saveBill(){
   const name=document.getElementById('bl-name').value.trim();
   const amt=parseFloat(document.getElementById('bl-amt').value)||0;
-  const due=document.getElementById('bl-due').value.trim();
+  const dueRaw=document.getElementById('bl-due').value.trim();
   if(!name)return;
-  bills.push({id:'b'+Date.now(),name,amt,due,paid:false});
+  // Store due as number if it's a plain number, else keep string (e.g. "Everyday")
+  const due=dueRaw&&!isNaN(dueRaw)?parseInt(dueRaw):dueRaw;
+  bills.push({id:'b'+Date.now(),name,amt,due,paidMonth:null});
   lss('monthly-bills',bills);
   ['bl-name','bl-amt','bl-due'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   closeBillModal();renderBills();
 }
-function toggleBillPaid(id){bills=bills.map(b=>b.id===id?{...b,paid:!b.paid}:b);lss('monthly-bills',bills);renderBills();}
+function toggleBillPaid(id){
+  const nowMo=`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  bills=bills.map(b=>{
+    if(b.id!==id)return b;
+    const alreadyPaid=b.paidMonth===nowMo;
+    return{...b,paidMonth:alreadyPaid?null:nowMo};
+  });
+  lss('monthly-bills',bills);renderBills();
+}
 function deleteBill(id){bills=bills.filter(b=>b.id!==id);lss('monthly-bills',bills);renderBills();}
 function renderBills(){
   const el=document.getElementById('bills-list');if(!el)return;
+  const now=new Date();
+  const nowMo=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const moName=mo[now.getMonth()];
   const total=bills.reduce((a,b)=>a+(parseFloat(b.amt)||0),0);
-  const paid=bills.filter(b=>b.paid).reduce((a,b)=>a+(parseFloat(b.amt)||0),0);
+  const paid=bills.filter(b=>b.paidMonth===nowMo).reduce((a,b)=>a+(parseFloat(b.amt)||0),0);
   const lbl=document.getElementById('bills-total-lbl');
   if(lbl)lbl.textContent=`$${paid.toFixed(0)}/$${total.toFixed(0)} paid`;
   if(!bills.length){el.innerHTML='<div class="list-empty">No bills.</div>';return;}
-  const sorted=[...bills.filter(b=>!b.paid),...bills.filter(b=>b.paid)];
+  const isPaid=b=>b.paidMonth===nowMo;
+  const sorted=[...bills.filter(b=>!isPaid(b)),...bills.filter(b=>isPaid(b))];
+  const fmtDue=due=>{
+    if(!due&&due!==0)return'';
+    if(due==='Everyday')return'Everyday';
+    return`${moName} ${due}`;
+  };
   el.innerHTML=sorted.map(b=>`
-    <div class="list-row${b.paid?' done-row':''}">
-      <div class="list-chk${b.paid?' on':''}" onclick="toggleBillPaid('${b.id}')"><i class="ti ti-check"></i></div>
+    <div class="list-row${isPaid(b)?' done-row':''}">
+      <div class="list-chk${isPaid(b)?' on':''}" onclick="toggleBillPaid('${b.id}')"><i class="ti ti-check"></i></div>
       <span class="list-name">${b.name}</span>
-      ${b.due?`<span class="list-meta">${b.due}</span>`:''}
-      <span class="list-amt" style="color:${b.paid?'var(--t3)':'var(--red)'}">$${b.amt}</span>
+      ${b.due||b.due===0?`<span class="list-meta">${fmtDue(b.due)}</span>`:''}
+      <span class="list-amt" style="color:${isPaid(b)?'var(--t3)':'var(--red)'}">$${b.amt}</span>
       <button class="list-del" onclick="deleteBill('${b.id}')"><i class="ti ti-x"></i></button>
     </div>`).join('')
     +`<div class="list-foot"><span style="color:var(--t3)">Total/month</span><span style="font-family:var(--mono);font-weight:600;color:var(--red)">$${total.toFixed(0)}</span></div>`;
