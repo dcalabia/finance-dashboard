@@ -483,11 +483,20 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
       🛍 Shopping list
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-family:var(--mono);font-size:12px;color:var(--gold)" id="shop-total-lbl"></span>
+        <button class="add-btn-sm" id="shop-archive-btn" onclick="archiveBoughtShop()" style="display:none;background:rgba(107,114,128,.12);border-color:rgba(107,114,128,.3);color:var(--t3)">↓ Archive bought</button>
         <button class="add-btn-sm" onclick="openShopModal()">+ Add</button>
       </div>
     </div>
     <div class="list-card" id="shop-card">
       <div id="shop-list"></div>
+      <!-- Archive section -->
+      <div id="shop-archive-wrap" style="display:none;border-top:1px solid var(--border)">
+        <div onclick="toggleShopArchive()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:.4rem .85rem;background:var(--bg3)">
+          <span style="font-size:11px;font-weight:500;color:var(--t3)">📦 Archived <span id="shop-arc-count" style="background:var(--border2);border-radius:8px;padding:0 5px;font-size:10px;color:var(--t2)"></span></span>
+          <span id="shop-arc-chevron" style="font-size:10px;color:var(--t3)">▶</span>
+        </div>
+        <div id="shop-archive-list" style="display:none"></div>
+      </div>
     </div>
 
     <!-- Groceries -->
@@ -1204,23 +1213,88 @@ function saveShopItem(){
   document.getElementById('sh-name').value='';document.getElementById('sh-price').value='';
   closeShopModal();renderShop();
 }
-function toggleShopBought(id){shopItems=shopItems.map(s=>s.id===id?{...s,bought:!s.bought}:s);lss('shopping-list',shopItems);renderShop();}
+function toggleShopBought(id){
+  shopItems=shopItems.map(s=>s.id===id?{...s,bought:!s.bought}:s);
+  lss('shopping-list',shopItems);
+  renderShop();
+}
 function deleteShopItem(id){shopItems=shopItems.filter(s=>s.id!==id);lss('shopping-list',shopItems);renderShop();}
+function archiveShopItem(id){
+  const item=shopItems.find(s=>s.id===id);if(!item)return;
+  const arc=ls('shop-archive')||[];
+  arc.unshift({...item,archivedAt:new Date().toLocaleDateString('en-CA')});
+  lss('shop-archive',arc);
+  shopItems=shopItems.filter(s=>s.id!==id);
+  lss('shopping-list',shopItems);
+  renderShop();
+}
+function archiveBoughtShop(){
+  const bought=shopItems.filter(s=>s.bought);
+  if(!bought.length)return;
+  const arc=ls('shop-archive')||[];
+  const date=new Date().toLocaleDateString('en-CA');
+  bought.forEach(s=>arc.unshift({...s,archivedAt:date}));
+  lss('shop-archive',arc);
+  shopItems=shopItems.filter(s=>!s.bought);
+  lss('shopping-list',shopItems);
+  renderShop();
+}
+function toggleShopArchive(){
+  const list=document.getElementById('shop-archive-list');
+  const chev=document.getElementById('shop-arc-chevron');
+  if(!list)return;
+  const open=list.style.display!=='none';
+  list.style.display=open?'none':'block';
+  if(chev)chev.textContent=open?'▶':'▼';
+}
+function deleteShopArchiveItem(idx){
+  const arc=ls('shop-archive')||[];
+  arc.splice(idx,1);
+  lss('shop-archive',arc);
+  renderShop();
+}
 function renderShop(){
   const el=document.getElementById('shop-list');if(!el)return;
   const remaining=shopItems.filter(s=>!s.bought).reduce((a,s)=>a+(parseFloat(s.price)||0),0);
   const lbl=document.getElementById('shop-total-lbl');
   if(lbl)lbl.textContent=remaining?formatMoney(remaining)+' left':'';
-  if(!shopItems.length){el.innerHTML='<div class="list-empty">Shopping list is empty.</div>';return;}
-  const sorted=[...shopItems.filter(s=>!s.bought),...shopItems.filter(s=>s.bought)];
-  el.innerHTML=sorted.map(s=>`
-    <div class="list-row${s.bought?' done-row':''}">
-      <div class="list-chk${s.bought?' on':''}" onclick="toggleShopBought('${s.id}')"><i class="ti ti-check"></i></div>
-      <span class="list-name">${s.name}</span>
-      <span class="list-amt" style="color:${s.bought?'var(--t3)':'var(--gold)'}">$${s.price}</span>
-      <button class="list-del" onclick="deleteShopItem('${s.id}')"><i class="ti ti-x"></i></button>
-    </div>`).join('')
-    +`<div class="list-foot"><span style="color:var(--t3)">Remaining</span><span style="font-family:var(--mono);font-weight:600;color:var(--gold)">${formatMoney(remaining)}</span></div>`;
+
+  // Show/hide "Archive bought" button
+  const archBtn=document.getElementById('shop-archive-btn');
+  if(archBtn)archBtn.style.display=shopItems.some(s=>s.bought)?'':'none';
+
+  if(!shopItems.length){
+    el.innerHTML='<div class="list-empty">Shopping list is empty.</div>';
+  } else {
+    const sorted=[...shopItems.filter(s=>!s.bought),...shopItems.filter(s=>s.bought)];
+    el.innerHTML=sorted.map(s=>`
+      <div class="list-row${s.bought?' done-row':''}">
+        <div class="list-chk${s.bought?' on':''}" onclick="toggleShopBought('${s.id}')"><i class="ti ti-check"></i></div>
+        <span class="list-name">${s.name}</span>
+        <span class="list-amt" style="color:${s.bought?'var(--t3)':'var(--gold)'}">$${s.price}</span>
+        ${s.bought?`<button onclick="archiveShopItem('${s.id}')" title="Archive" style="background:transparent;border:none;color:var(--t3);font-size:13px;cursor:pointer;padding:0 3px;opacity:.7" title="Archive">↓</button>`:''}
+        <button class="list-del" onclick="deleteShopItem('${s.id}')"><i class="ti ti-x"></i></button>
+      </div>`).join('')
+      +`<div class="list-foot"><span style="color:var(--t3)">Remaining</span><span style="font-family:var(--mono);font-weight:600;color:var(--gold)">${formatMoney(remaining)}</span></div>`;
+  }
+
+  // Render archive section
+  const arc=ls('shop-archive')||[];
+  const arcWrap=document.getElementById('shop-archive-wrap');
+  const arcList=document.getElementById('shop-archive-list');
+  const arcCount=document.getElementById('shop-arc-count');
+  if(arcWrap)arcWrap.style.display=arc.length?'block':'none';
+  if(arcCount)arcCount.textContent=arc.length?String(arc.length):'';
+  if(arcList&&arc.length){
+    arcList.innerHTML=arc.map((s,i)=>`
+      <div class="list-row" style="opacity:.6">
+        <div class="list-chk on"><i class="ti ti-check"></i></div>
+        <span class="list-name" style="text-decoration:line-through;color:var(--t3)">${s.name}</span>
+        <span class="list-amt" style="color:var(--t3)">$${s.price}</span>
+        <span style="font-size:10px;color:var(--t3);font-family:var(--mono);white-space:nowrap">${s.archivedAt||''}</span>
+        <button onclick="deleteShopArchiveItem(${i})" class="list-del"><i class="ti ti-x"></i></button>
+      </div>`).join('');
+  }
 }
 
 // ── Groceries ─────────────────────────────────────────────────
