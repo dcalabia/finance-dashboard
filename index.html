@@ -1243,8 +1243,7 @@ function renderBills(){
       <span class="list-name">${b.name}</span>
       ${b.due||b.due===0?`<span class="list-meta">${fmtDue(b.due)}</span>`:''}
       <span class="list-amt" style="color:${isPaid(b)?'var(--t3)':'var(--red)'}">$${b.amt}</span>
-      <button class="list-del" onclick="openBillEditModal('${b.id}')" title="Edit"><i class="ti ti-pencil"></i></button>
-      <button class="list-del" onclick="deleteBill('${b.id}')" title="Delete"><i class="ti ti-x"></i></button>
+      <button onclick="openBillEditModal('${b.id}')" title="Edit" style="background:transparent;border:1px solid var(--border2);border-radius:5px;color:var(--t3);font-size:11px;padding:2px 7px;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s" onmouseover="this.style.color='var(--t1)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--t3)'">Edit</button>
     </div>`).join('')
     +`<div class="list-foot"><span style="color:var(--t3)">Total/month</span><span style="font-family:var(--mono);font-weight:600;color:var(--red)">$${total.toFixed(0)}</span></div>`;
 }
