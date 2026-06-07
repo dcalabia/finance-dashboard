@@ -766,7 +766,17 @@ const LTG_DEFS=[
 const todayStr=()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const TODAY=todayStr();
 let viewDate=TODAY;
-const isToday=()=>viewDate===TODAY;
+function isEditable(){
+  const now=new Date();
+  const vd=new Date(viewDate+'T12:00:00');
+  const td=new Date(TODAY+'T12:00:00');
+  const diffDays=Math.round((vd-td)/(1000*60*60*24));
+  if(diffDays<-1)return false;           // older than yesterday → locked
+  if(diffDays===0||diffDays===-1)return true; // today or yesterday → always open
+  if(diffDays===1)return now.getHours()<12;   // tomorrow → open until noon
+  return false;
+}
+const isToday=()=>viewDate===TODAY; // kept for display logic only
 let sbClient=null;
 let settings={hourly_rate:17.60,pay_period_start:TODAY};
 let dstats={},expenses=[],payments=[],bills=[],shopItems=[],grocItems=[],ltg={},paychecks=[];
@@ -834,9 +844,30 @@ function renderDateNav(){
   document.getElementById('dnav-label').textContent=label;
   document.getElementById('dnav-sub').textContent=`${WDAYS[vd.getDay()]}, ${MSHORT[vd.getMonth()]} ${vd.getDate()}`;
   document.getElementById('dnav-today-btn').classList.toggle('active',diff===0);
-  const addable=isToday();
-  document.getElementById('exp-add-row').style.display=addable?'flex':'none';
-  document.getElementById('log-payment-btn').style.display=addable?'inline-block':'none';
+  const editable=isEditable();
+  document.getElementById('exp-add-row').style.display=editable?'flex':'none';
+  document.getElementById('log-payment-btn').style.display=editable?'inline-block':'none';
+  // Lock badge
+  let lockEl=document.getElementById('dnav-lock');
+  if(!lockEl){
+    lockEl=document.createElement('span');
+    lockEl.id='dnav-lock';
+    lockEl.style.cssText='font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px;font-weight:500';
+    document.getElementById('dnav-label').parentNode.appendChild(lockEl);
+  }
+  if(!editable && diff<-1){
+    lockEl.textContent='🔒 Locked';
+    lockEl.style.background='rgba(248,113,113,.1)';
+    lockEl.style.color='#f87171';
+    lockEl.style.display='inline';
+  } else if(editable && diff!==0){
+    lockEl.textContent='✏️ Editable';
+    lockEl.style.background='rgba(74,222,128,.1)';
+    lockEl.style.color='#4ade80';
+    lockEl.style.display='inline';
+  } else {
+    lockEl.style.display='none';
+  }
 }
 
 // ── Earnings calc ────────────────────────────────────────────
@@ -850,7 +881,7 @@ function totalPaymentsToday(){return payments.reduce((s,p)=>s+(parseFloat(p.amt)
 
 // ── Steppers ─────────────────────────────────────────────────
 function stepStat(id,delta){
-  if(!isToday())return;
+  if(!isEditable())return;
   const cur=parseFloat(dstats[id])||0;
   dstats[id]=Math.max(0,Math.round((cur+delta)*100)/100);
   lss('stats:'+viewDate,dstats);
@@ -933,7 +964,7 @@ function savePayment(){
   renderToday();
 }
 function deletePayment(id){
-  if(!isToday())return;
+  if(!isEditable())return;
   const p=payments.find(x=>x.id===id);
   if(p){
     if(p.type==='salary'&&p.hrs>0){dstats.hours=Math.max(0,(parseFloat(dstats.hours)||0)-p.hrs);lss('stats:'+viewDate,dstats);}
@@ -945,7 +976,7 @@ function deletePayment(id){
 }
 function renderPayments(){
   const el=document.getElementById('payments-list');if(!el)return;
-  const ro=!isToday();
+  const ro=!isEditable();
   if(!payments.length){
     el.innerHTML='<div class="shift-log-empty">No payments logged today.</div>';
     return;
@@ -966,7 +997,7 @@ function renderPayments(){
 // ── Expenses ─────────────────────────────────────────────────
 function renderExpCatPills(){
   const el=document.getElementById('exp-cat-row');if(!el)return;
-  if(!isToday()){el.style.display='none';return;}
+  if(!isEditable()){el.style.display='none';return;}
   el.style.display='flex';
   el.innerHTML=Object.entries(EXP_CATS).map(([id,c])=>{
     const active=id===selectedExpCat;
@@ -977,7 +1008,7 @@ function renderExpCatPills(){
 function selectExpCat(id){selectedExpCat=id;renderExpCatPills();}
 
 function addExpense(){
-  if(!isToday())return;
+  if(!isEditable())return;
   const desc=document.getElementById('exp-desc').value.trim();
   const amt=parseFloat(document.getElementById('exp-amt').value)||0;
   if(!desc||!amt)return;
@@ -987,27 +1018,64 @@ function addExpense(){
   document.getElementById('exp-amt').value='';
   renderExpenses();renderToday();
 }
+function editExpCat(id, dk){
+  const dateKey = dk || viewDate;
+  const exps = ls('expenses:'+dateKey)||[];
+  const exp = exps.find(e=>e.id==id);
+  if(!exp) return;
+  // Remove existing modal
+  const existing = document.getElementById('cat-edit-modal');
+  if(existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'cat-edit-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.25rem;width:100%;max-width:340px">
+    <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:4px">${exp.desc}</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:1rem">-$${parseFloat(exp.amt).toFixed(2)} · ${dateKey}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:1rem">
+      ${Object.entries(EXP_CATS).map(([catId,c])=>`
+        <button onclick="saveExpCat(${id},'${dateKey}','${catId}')"
+          style="padding:.5rem .75rem;border-radius:8px;border:1px solid ${catId===exp.cat?c.col:'var(--border)'};background:${catId===exp.cat?c.col+'22':'transparent'};color:${catId===exp.cat?c.col:'var(--t2)'};font-size:12px;cursor:pointer;text-align:left;font-family:inherit;transition:all .15s">
+          ${c.emoji} ${c.l}
+        </button>`).join('')}
+    </div>
+    <button onclick="document.getElementById('cat-edit-modal').remove()" style="width:100%;padding:.5rem;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--t3);font-size:12px;cursor:pointer">Cancel</button>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+}
+
+function saveExpCat(id, dk, newCat){
+  const exps = ls('expenses:'+dk)||[];
+  const idx = exps.findIndex(e=>e.id==id);
+  if(idx>-1){ exps[idx].cat = newCat; lss('expenses:'+dk, exps); }
+  document.getElementById('cat-edit-modal').remove();
+  // Refresh whichever view is active
+  if(dk === viewDate){ expenses = exps; renderExpenses(); }
+  renderMonthly();
+}
+
 function delExpense(id){
-  if(!isToday())return;
+  if(!isEditable())return;
   expenses=expenses.filter(e=>e.id!==id);
   lss('expenses:'+viewDate,expenses);
   renderExpenses();renderToday();
 }
 function renderExpenses(){
   const el=document.getElementById('exp-list');if(!el)return;
-  const ro=!isToday();
+  const ro=!isEditable();
   renderExpCatPills();
   document.getElementById('exp-count').textContent=`${expenses.length} purchase${expenses.length===1?'':'s'}`;
   document.getElementById('exp-total').textContent='-'+formatMoney(totalSpent());
   if(!expenses.length){el.innerHTML='<div class="shift-log-empty">No expenses today.</div>';return;}
   el.innerHTML=expenses.map(e=>{
     const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;
-    return`<div class="exp-row">
+    return`<div class="exp-row" onclick="editExpCat(${e.id},'${viewDate}')" style="cursor:pointer">
       <span style="width:8px;height:8px;border-radius:50%;background:${c.col};flex-shrink:0;display:inline-block"></span>
       <span class="exp-desc">${e.desc}</span>
-      <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:${c.col}22;color:${c.col};white-space:nowrap">${c.emoji}</span>
+      <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:${c.col}22;color:${c.col};white-space:nowrap">${c.emoji} ${c.l}</span>
       <span class="exp-amt">-${formatMoney(parseFloat(e.amt))}</span>
-      ${ro?'':` <button class="exp-del" onclick="delExpense(${e.id})"><i class="ti ti-x"></i></button>`}
+      ${ro?'':` <button class="exp-del" onclick="event.stopPropagation();delExpense(${e.id})"><i class="ti ti-x"></i></button>`}
     </div>`;
   }).join('');
 }
@@ -1598,7 +1666,7 @@ function renderMonthly(){
           <div class="mo-day-list">
             ${exps.map(e=>{
               const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;
-              return`<div class="mo-exp-row">
+              return`<div class="mo-exp-row" onclick="editExpCat(${e.id},'${dk}')" style="cursor:pointer">
                 <div class="mo-exp-cat-dot" style="background:${c.col}"></div>
                 <span class="mo-exp-desc">${e.desc}</span>
                 <span class="mo-exp-cat-lbl" style="background:${c.col}22;color:${c.col}">${c.emoji} ${c.l}</span>
