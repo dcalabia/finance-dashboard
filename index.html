@@ -295,7 +295,7 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
   <div class="tab-bar">
     <button class="tab-btn active" id="tab-today" onclick="switchTab('today')">💰 Today</button>
     <button class="tab-btn" id="tab-paycycle" onclick="switchTab('paycycle')">📅 Pay Cycle</button>
-    <button class="tab-btn" id="tab-monthly" onclick="switchTab('monthly')">📊 Monthly</button>
+    <button class="tab-btn" id="tab-monthly" onclick="switchTab('monthly')">📊 Breakdown</button>
     <button class="tab-btn" id="tab-bills" onclick="switchTab('bills')">📋 Bills</button>
     <button class="tab-btn" id="tab-lists" onclick="switchTab('lists')">🛒 Lists</button>
     <button class="tab-btn" id="tab-goals" onclick="switchTab('goals')">🎯 Goals</button>
@@ -399,31 +399,95 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
     </div>
   </div>
 
-  <!-- ── MONTHLY ───────────────────────────────────── -->
+  <!-- ── BREAKDOWN ───────────────────────────────────── -->
   <div class="tsec" id="sec-monthly">
-    <!-- Month nav -->
-    <div class="date-nav" style="margin-bottom:1.25rem">
-      <button class="dnav-btn" onclick="navMonth(-1)">‹</button>
-      <div class="dnav-center">
-        <div class="dnav-label" id="mo-label"></div>
-        <div class="dnav-sub" id="mo-sub"></div>
+    <!-- Sub-nav -->
+    <div class="tab-bar" style="margin-bottom:1rem">
+      <button class="tab-btn" id="bk-tab-daily" onclick="switchBreakdown('daily')">📅 Daily</button>
+      <button class="tab-btn" id="bk-tab-weekly" onclick="switchBreakdown('weekly')">📆 Weekly</button>
+      <button class="tab-btn active" id="bk-tab-monthly" onclick="switchBreakdown('monthly')">📊 Monthly</button>
+      <button class="tab-btn" id="bk-tab-annually" onclick="switchBreakdown('annually')">📈 Annually</button>
+    </div>
+
+    <!-- Daily sub-view -->
+    <div id="bk-sec-daily" style="display:none">
+      <div class="date-nav" style="margin-bottom:1.25rem">
+        <button class="dnav-btn" onclick="shiftBkDate(-1)">‹</button>
+        <div class="dnav-center">
+          <div class="dnav-label" id="bk-daily-label"></div>
+          <div class="dnav-sub" id="bk-daily-sub"></div>
+        </div>
+        <button class="dnav-today" id="bk-daily-today-btn" onclick="bkDateToday()">Today</button>
+        <button class="dnav-btn" onclick="shiftBkDate(1)">›</button>
       </div>
-      <button class="dnav-today" id="mo-today-btn" onclick="goThisMonth()">This month</button>
-      <button class="dnav-btn" onclick="navMonth(1)">›</button>
+      <div id="bk-daily-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem"></div>
+      <div id="bk-daily-chart-wrap" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;margin-bottom:1.25rem;display:none">
+        <div class="slbl" style="margin-bottom:.75rem">Spending by category</div>
+        <div id="bk-daily-chart-body" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center"></div>
+      </div>
+      <div class="slbl">Expenses</div>
+      <div id="bk-daily-list"></div>
     </div>
 
-    <!-- Summary cards -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem" id="mo-summary"></div>
-
-    <!-- Pie chart + legend -->
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;margin-bottom:1.25rem" id="mo-chart-wrap">
-      <div class="slbl" style="margin-bottom:.75rem">Spending by category</div>
-      <div id="mo-chart-body" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center"></div>
+    <!-- Weekly sub-view -->
+    <div id="bk-sec-weekly" style="display:none">
+      <div class="date-nav" style="margin-bottom:1.25rem">
+        <button class="dnav-btn" onclick="shiftBkWeek(-1)">‹</button>
+        <div class="dnav-center">
+          <div class="dnav-label" id="bk-week-label"></div>
+          <div class="dnav-sub" id="bk-week-sub"></div>
+        </div>
+        <button class="dnav-today" id="bk-week-today-btn" onclick="bkWeekToday()">This week</button>
+        <button class="dnav-btn" onclick="shiftBkWeek(1)">›</button>
+      </div>
+      <div id="bk-weekly-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem"></div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;margin-bottom:1.25rem">
+        <div class="slbl" style="margin-bottom:.75rem">Spending by category</div>
+        <div id="bk-weekly-chart-body" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center"></div>
+      </div>
+      <div class="slbl">Daily breakdown</div>
+      <div id="bk-weekly-list"></div>
     </div>
 
-    <!-- Full expense list -->
-    <div class="slbl">All expenses</div>
-    <div id="mo-expense-list"></div>
+    <!-- Monthly sub-view -->
+    <div id="bk-sec-monthly" style="display:block">
+      <div class="date-nav" style="margin-bottom:1.25rem">
+        <button class="dnav-btn" onclick="navMonth(-1)">‹</button>
+        <div class="dnav-center">
+          <div class="dnav-label" id="mo-label"></div>
+          <div class="dnav-sub" id="mo-sub"></div>
+        </div>
+        <button class="dnav-today" id="mo-today-btn" onclick="goThisMonth()">This month</button>
+        <button class="dnav-btn" onclick="navMonth(1)">›</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem" id="mo-summary"></div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;margin-bottom:1.25rem" id="mo-chart-wrap">
+        <div class="slbl" style="margin-bottom:.75rem">Spending by category</div>
+        <div id="mo-chart-body" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center"></div>
+      </div>
+      <div class="slbl">All expenses</div>
+      <div id="mo-expense-list"></div>
+    </div>
+
+    <!-- Annually sub-view -->
+    <div id="bk-sec-annually" style="display:none">
+      <div class="date-nav" style="margin-bottom:1.25rem">
+        <button class="dnav-btn" onclick="shiftBkYear(-1)">‹</button>
+        <div class="dnav-center">
+          <div class="dnav-label" id="bk-year-label"></div>
+          <div class="dnav-sub" id="bk-year-sub"></div>
+        </div>
+        <button class="dnav-today" onclick="bkYearToday()">This year</button>
+        <button class="dnav-btn" onclick="shiftBkYear(1)">›</button>
+      </div>
+      <div id="bk-annual-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem"></div>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;margin-bottom:1.25rem">
+        <div class="slbl" style="margin-bottom:.75rem">Spending by category</div>
+        <div id="bk-annual-chart-body" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center"></div>
+      </div>
+      <div class="slbl">Monthly breakdown</div>
+      <div id="bk-annual-list"></div>
+    </div>
   </div>
 
   <!-- ── PAY CYCLE ──────────────────────────────────── -->
@@ -831,7 +895,7 @@ function switchTab(t){
     document.getElementById('sec-'+id).classList.toggle('active',id===t);
     document.getElementById('tab-'+id).classList.toggle('active',id===t);
   });
-  if(t==='monthly')renderMonthly();
+  if(t==='monthly')renderBreakdown();
   localStorage.setItem('fin-active-tab',t);
 }
 
@@ -1549,6 +1613,206 @@ function renderGoals(){
   }).join('');
 }
 
+// ── Breakdown tab ────────────────────────────────────────────
+let bkView='monthly';
+let bkDate=TODAY;
+let bkWeekStart='';
+let bkAnnualYear=new Date().getFullYear();
+
+function getWeekStart(dk){
+  const d=new Date(dk+'T12:00:00');
+  const day=d.getDay();
+  const diff=day===0?-6:1-day;
+  d.setDate(d.getDate()+diff);
+  return dateKey(d);
+}
+function switchBreakdown(v){
+  bkView=v;
+  ['daily','weekly','monthly','annually'].forEach(id=>{
+    document.getElementById('bk-sec-'+id).style.display=id===v?'block':'none';
+    document.getElementById('bk-tab-'+id).classList.toggle('active',id===v);
+  });
+  renderBreakdown();
+}
+function renderBreakdown(){
+  if(bkView==='daily')renderBkDaily();
+  else if(bkView==='weekly')renderBkWeekly();
+  else if(bkView==='monthly')renderMonthly();
+  else if(bkView==='annually')renderBkAnnually();
+}
+
+// Daily breakdown
+function shiftBkDate(dir){
+  const d=new Date(bkDate+'T12:00:00');
+  d.setDate(d.getDate()+dir);
+  bkDate=dateKey(d);
+  renderBkDaily();
+}
+function bkDateToday(){bkDate=TODAY;renderBkDaily();}
+function renderBkDaily(){
+  const d=new Date(bkDate+'T12:00:00');
+  const td=new Date(TODAY+'T12:00:00');
+  const diff=Math.round((d-td)/(1000*60*60*24));
+  const dayName=diff===0?'Today':diff===-1?'Yesterday':diff===1?'Tomorrow':`${WDAYS[d.getDay()]}, ${MSHORT[d.getMonth()]} ${d.getDate()}`;
+  const lbl=document.getElementById('bk-daily-label');
+  const sub=document.getElementById('bk-daily-sub');
+  const btn=document.getElementById('bk-daily-today-btn');
+  if(lbl)lbl.textContent=dayName;
+  if(sub)sub.textContent=`${WDAYS[d.getDay()]}, ${MSHORT[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`;
+  if(btn)btn.classList.toggle('active',diff===0);
+  const exps=ls('expenses:'+bkDate)||[];
+  const stats=ls('stats:'+bkDate)||{};
+  const earned=(parseFloat(stats.hours)||0)*settings.hourly_rate+(parseFloat(stats.tips)||0);
+  const spent=exps.reduce((s,e)=>s+(parseFloat(e.amt)||0),0);
+  const net=earned-spent;
+  const sumEl=document.getElementById('bk-daily-summary');
+  if(sumEl)sumEl.innerHTML=[
+    {v:formatMoney(earned),l:'Earned',c:'#4ade80'},
+    {v:'-'+formatMoney(spent),l:'Spent',c:'var(--red)'},
+    {v:(net>=0?'+':'')+formatMoney(net),l:'Net',c:net>=0?'#4ade80':'var(--red)'},
+  ].map(s=>`<div class="mo-sum-card"><div class="mo-sum-val" style="color:${s.c}">${s.v}</div><div class="mo-sum-lbl">${s.l}</div></div>`).join('');
+  const catTotals={};
+  exps.forEach(e=>{const cat=e.cat||'other';catTotals[cat]=(catTotals[cat]||0)+(parseFloat(e.amt)||0);});
+  const catData=Object.entries(catTotals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([id,val])=>({id,val,...EXP_CATS[id]||EXP_CATS.other}));
+  const chartWrap=document.getElementById('bk-daily-chart-wrap');
+  const chartEl=document.getElementById('bk-daily-chart-body');
+  if(chartWrap)chartWrap.style.display=catData.length?'block':'none';
+  if(chartEl&&catData.length){
+    chartEl.innerHTML=`<div style="flex-shrink:0">${buildPie(catData,spent,160)}</div><div class="mo-legend">${catData.map(c=>`<div class="mo-legend-row"><div class="mo-legend-dot" style="background:${c.col}"></div><span class="mo-legend-lbl">${c.emoji} ${c.l}</span><span class="mo-legend-pct">${spent?Math.round(c.val/spent*100):0}%</span><span class="mo-legend-amt">${formatMoney(c.val)}</span></div>`).join('')}</div>`;
+  }
+  const listEl=document.getElementById('bk-daily-list');
+  if(!listEl)return;
+  if(!exps.length){listEl.innerHTML='<div class="empty-state">No expenses on this day.</div>';return;}
+  listEl.innerHTML='<div class="mo-day-list" style="border-radius:var(--rl);overflow:hidden;margin-bottom:1rem">'+exps.map(e=>{
+    const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;
+    return`<div class="mo-exp-row"><div class="mo-exp-cat-dot" style="background:${c.col}"></div><span class="mo-exp-desc">${e.desc}</span><span class="mo-exp-cat-lbl" style="background:${c.col}22;color:${c.col}">${c.emoji} ${c.l}</span><span class="mo-exp-amt">-${formatMoney(parseFloat(e.amt))}</span></div>`;
+  }).join('')+'</div>';
+}
+
+// Weekly breakdown
+function shiftBkWeek(dir){
+  const d=new Date(bkWeekStart+'T12:00:00');
+  d.setDate(d.getDate()+dir*7);
+  bkWeekStart=dateKey(d);
+  renderBkWeekly();
+}
+function bkWeekToday(){bkWeekStart=getWeekStart(TODAY);renderBkWeekly();}
+function renderBkWeekly(){
+  if(!bkWeekStart)bkWeekStart=getWeekStart(TODAY);
+  const ws=new Date(bkWeekStart+'T12:00:00');
+  const we=new Date(bkWeekStart+'T12:00:00');
+  we.setDate(ws.getDate()+6);
+  const isCurrentWeek=bkWeekStart===getWeekStart(TODAY);
+  const lbl=document.getElementById('bk-week-label');
+  const sub=document.getElementById('bk-week-sub');
+  const btn=document.getElementById('bk-week-today-btn');
+  if(lbl)lbl.textContent=`${MSHORT[ws.getMonth()]} ${ws.getDate()} – ${MSHORT[we.getMonth()]} ${we.getDate()}`;
+  if(sub)sub.textContent=isCurrentWeek?'Current week':`Week of ${MSHORT[ws.getMonth()]} ${ws.getDate()}`;
+  if(btn)btn.classList.toggle('active',isCurrentWeek);
+  const days=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(bkWeekStart+'T12:00:00');
+    d.setDate(d.getDate()+i);
+    const dk=dateKey(d);
+    const exps=ls('expenses:'+dk)||[];
+    const stats=ls('stats:'+dk)||{};
+    const earned=(parseFloat(stats.hours)||0)*settings.hourly_rate+(parseFloat(stats.tips)||0);
+    const spent=exps.reduce((s,e)=>s+(parseFloat(e.amt)||0),0);
+    days.push({dk,d,exps,earned,spent});
+  }
+  const totalEarned=days.reduce((s,d)=>s+d.earned,0);
+  const totalSpent=days.reduce((s,d)=>s+d.spent,0);
+  const net=totalEarned-totalSpent;
+  const sumEl=document.getElementById('bk-weekly-summary');
+  if(sumEl)sumEl.innerHTML=[
+    {v:formatMoney(totalEarned),l:'Earned',c:'#4ade80'},
+    {v:'-'+formatMoney(totalSpent),l:'Spent',c:'var(--red)'},
+    {v:(net>=0?'+':'')+formatMoney(net),l:'Net',c:net>=0?'#4ade80':'var(--red)'},
+  ].map(s=>`<div class="mo-sum-card"><div class="mo-sum-val" style="color:${s.c}">${s.v}</div><div class="mo-sum-lbl">${s.l}</div></div>`).join('');
+  const catTotals={};
+  days.forEach(day=>day.exps.forEach(e=>{const cat=e.cat||'other';catTotals[cat]=(catTotals[cat]||0)+(parseFloat(e.amt)||0);}));
+  const catData=Object.entries(catTotals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([id,val])=>({id,val,...EXP_CATS[id]||EXP_CATS.other}));
+  const chartEl=document.getElementById('bk-weekly-chart-body');
+  if(chartEl){
+    if(!catData.length){chartEl.innerHTML='<div style="text-align:center;color:var(--t3);font-size:13px;padding:1.5rem">No expenses this week.</div>';}
+    else{chartEl.innerHTML=`<div style="flex-shrink:0">${buildPie(catData,totalSpent,160)}</div><div class="mo-legend">${catData.map(c=>`<div class="mo-legend-row"><div class="mo-legend-dot" style="background:${c.col}"></div><span class="mo-legend-lbl">${c.emoji} ${c.l}</span><span class="mo-legend-pct">${totalSpent?Math.round(c.val/totalSpent*100):0}%</span><span class="mo-legend-amt">${formatMoney(c.val)}</span></div>`).join('')}</div>`;}
+  }
+  const listEl=document.getElementById('bk-weekly-list');
+  if(!listEl)return;
+  if(!days.some(d=>d.exps.length||d.earned)){listEl.innerHTML='<div class="empty-state">No data this week.</div>';return;}
+  listEl.innerHTML=days.map(day=>{
+    if(!day.exps.length&&!day.earned)return'';
+    const dayName=`${WDAYS[day.d.getDay()]}, ${MSHORT[day.d.getMonth()]} ${day.d.getDate()}`;
+    return`<div class="mo-day-group"><div class="mo-day-hdr"><span>${dayName}</span><span style="font-family:var(--mono);font-weight:600;color:var(--red)">${day.spent>0?'-'+formatMoney(day.spent):'$0.00'}</span></div><div class="mo-day-list">${day.exps.length?day.exps.map(e=>{const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;return`<div class="mo-exp-row"><div class="mo-exp-cat-dot" style="background:${c.col}"></div><span class="mo-exp-desc">${e.desc}</span><span class="mo-exp-cat-lbl" style="background:${c.col}22;color:${c.col}">${c.emoji} ${c.l}</span><span class="mo-exp-amt">-${formatMoney(parseFloat(e.amt))}</span></div>`;}).join(''):'<div style="padding:.5rem .85rem;font-size:12px;color:var(--t3)">No expenses</div>'}</div></div>`;
+  }).join('');
+}
+
+// Annual breakdown
+function shiftBkYear(dir){bkAnnualYear+=dir;renderBkAnnually();}
+function bkYearToday(){bkAnnualYear=new Date().getFullYear();renderBkAnnually();}
+function renderBkAnnually(){
+  const now=new Date();
+  const isCurrent=bkAnnualYear===now.getFullYear();
+  const lbl=document.getElementById('bk-year-label');
+  const sub=document.getElementById('bk-year-sub');
+  if(lbl)lbl.textContent=String(bkAnnualYear);
+  if(sub)sub.textContent=isCurrent?'Current year':'Past year';
+  const months=[];
+  for(let m=1;m<=12;m++){
+    const dim=new Date(bkAnnualYear,m,0).getDate();
+    let spent=0,earned=0,txCount=0;
+    for(let d=1;d<=dim;d++){
+      const dk=`${bkAnnualYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const exps=ls('expenses:'+dk)||[];
+      const stats=ls('stats:'+dk)||{};
+      spent+=exps.reduce((s,e)=>s+(parseFloat(e.amt)||0),0);
+      earned+=(parseFloat(stats.hours)||0)*settings.hourly_rate+(parseFloat(stats.tips)||0);
+      txCount+=exps.length;
+    }
+    months.push({m,spent,earned,txCount});
+  }
+  const totalSpent=months.reduce((s,m)=>s+m.spent,0);
+  const totalEarned=months.reduce((s,m)=>s+m.earned,0);
+  const net=totalEarned-totalSpent;
+  const sumEl=document.getElementById('bk-annual-summary');
+  if(sumEl)sumEl.innerHTML=[
+    {v:formatMoney(totalEarned),l:'Earned',c:'#4ade80'},
+    {v:'-'+formatMoney(totalSpent),l:'Spent',c:'var(--red)'},
+    {v:(net>=0?'+':'')+formatMoney(net),l:'Net',c:net>=0?'#4ade80':'var(--red)'},
+  ].map(s=>`<div class="mo-sum-card"><div class="mo-sum-val" style="color:${s.c}">${s.v}</div><div class="mo-sum-lbl">${s.l}</div></div>`).join('');
+  const catTotals={};
+  for(let m=1;m<=12;m++){
+    const dim=new Date(bkAnnualYear,m,0).getDate();
+    for(let d=1;d<=dim;d++){
+      const dk=`${bkAnnualYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      (ls('expenses:'+dk)||[]).forEach(e=>{const cat=e.cat||'other';catTotals[cat]=(catTotals[cat]||0)+(parseFloat(e.amt)||0);});
+    }
+  }
+  const catData=Object.entries(catTotals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([id,val])=>({id,val,...EXP_CATS[id]||EXP_CATS.other}));
+  const chartEl=document.getElementById('bk-annual-chart-body');
+  if(chartEl){
+    if(!catData.length){chartEl.innerHTML='<div style="text-align:center;color:var(--t3);font-size:13px;padding:1.5rem">No expenses this year.</div>';}
+    else{chartEl.innerHTML=`<div style="flex-shrink:0">${buildPie(catData,totalSpent,160)}</div><div class="mo-legend">${catData.map(c=>`<div class="mo-legend-row"><div class="mo-legend-dot" style="background:${c.col}"></div><span class="mo-legend-lbl">${c.emoji} ${c.l}</span><span class="mo-legend-pct">${totalSpent?Math.round(c.val/totalSpent*100):0}%</span><span class="mo-legend-amt">${formatMoney(c.val)}</span></div>`).join('')}</div>`;}
+  }
+  const listEl=document.getElementById('bk-annual-list');
+  if(!listEl)return;
+  const maxSpent=Math.max(...months.map(m=>m.spent),1);
+  listEl.innerHTML=months.map(mo=>{
+    const pct=mo.spent/maxSpent*100;
+    return`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.65rem .85rem;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <span style="font-size:13px;font-weight:600;color:var(--t1)">${MONTHS[mo.m-1]}</span>
+        <div style="display:flex;gap:12px;align-items:center">
+          ${mo.earned>0?`<span style="font-size:11px;color:#4ade80;font-family:var(--mono)">+${formatMoney(mo.earned)}</span>`:''}
+          <span style="font-size:13px;font-weight:600;font-family:var(--mono);color:${mo.spent>0?'var(--red)':'var(--t3)'}">-${formatMoney(mo.spent)}</span>
+        </div>
+      </div>
+      ${mo.spent>0?`<div style="height:4px;border-radius:2px;background:var(--border2);overflow:hidden"><div style="height:100%;border-radius:2px;background:linear-gradient(90deg,#f87171,#f59e0b);width:${pct.toFixed(0)}%"></div></div>`:''}
+      ${mo.txCount>0?`<div style="font-size:10px;color:var(--t3);margin-top:4px">${mo.txCount} transaction${mo.txCount===1?'':'s'}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
 // ── Utils ────────────────────────────────────────────────────
 function formatMoney(n){return'$'+Math.abs(n).toFixed(2);}
 
@@ -1729,7 +1993,7 @@ function renderAll(){
   renderShop();
   renderGroceries();
   renderGoals();
-  renderMonthly();
+  renderBreakdown();
 }
 
 // ── Keyboard ─────────────────────────────────────────────────
