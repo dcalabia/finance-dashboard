@@ -2081,6 +2081,9 @@ loadAll();
 const savedTab=localStorage.getItem('fin-active-tab');
 if(savedTab)switchTab(savedTab);
 syncFromCloud();
+setInterval(()=>{syncFromCloud();pushAll();}, 5*60*1000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){syncFromCloud();}});
+window.addEventListener('beforeunload',()=>{pushAll();});
 
 // ── Dashboard Switcher ────────────────────────────────────────
 const DASHBOARDS = [
