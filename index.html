@@ -121,6 +121,7 @@ input,select{font-family:inherit;color:var(--t1)}
 .exp-amt{font-size:13px;font-weight:600;font-family:var(--mono);color:var(--red)}
 .exp-del{background:transparent;border:none;color:var(--t3);font-size:14px;cursor:pointer;padding:0 4px;opacity:0;transition:opacity .15s}
 .exp-row:hover .exp-del{opacity:1}
+.mo-exp-row:hover .exp-del{opacity:1}
 .exp-foot{display:flex;justify-content:space-between;padding:.55rem 1rem;border-top:1px solid var(--border);background:rgba(0,0,0,.12);font-size:12px}
 
 /* Pay period */
@@ -583,6 +584,24 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
     <div id="goals-list"></div>
   </div>
 
+</div>
+
+<!-- Expense Edit Modal -->
+<div class="overlay" id="exp-edit-modal" onclick="if(event.target===this)closeExpEditModal()">
+  <div class="modal">
+    <div class="modal-title">Edit expense</div>
+    <div class="field"><label>Description</label><input id="ee-desc" placeholder="What did you spend on?" onkeydown="if(event.key==='Enter')saveExpEdit()"></div>
+    <div class="field"><label>Amount ($)</label><input id="ee-amt" type="number" placeholder="0.00" step="0.01" min="0"></div>
+    <div class="field">
+      <label>Category</label>
+      <div id="ee-cat-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeExpEditModal()">Cancel</button>
+      <button class="btn btn-red" onclick="deleteExpFromModal()">Delete</button>
+      <button class="btn btn-primary" onclick="saveExpEdit()">Save</button>
+    </div>
+  </div>
 </div>
 
 <!-- Payment Modal -->
@@ -1141,12 +1160,12 @@ function renderExpenses(){
   if(!expenses.length){el.innerHTML='<div class="shift-log-empty">No expenses today.</div>';return;}
   el.innerHTML=expenses.map(e=>{
     const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;
-    return`<div class="exp-row" onclick="editExpCat(${e.id},'${viewDate}')" style="cursor:pointer">
+    return`<div class="exp-row" onclick="openExpEditModal(${e.id},'${viewDate}')" style="cursor:pointer">
       <span style="width:8px;height:8px;border-radius:50%;background:${c.col};flex-shrink:0;display:inline-block"></span>
       <span class="exp-desc">${e.desc}</span>
       <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:${c.col}22;color:${c.col};white-space:nowrap">${c.emoji} ${c.l}</span>
       <span class="exp-amt">-${formatMoney(parseFloat(e.amt))}</span>
-      ${ro?'':` <button class="exp-del" onclick="event.stopPropagation();delExpense(${e.id})"><i class="ti ti-x"></i></button>`}
+      <button class="exp-del" onclick="deleteExpAny(${e.id},'${viewDate}',event)"><i class="ti ti-x"></i></button>
     </div>`;
   }).join('');
 }
@@ -1613,6 +1632,61 @@ function renderGoals(){
   }).join('');
 }
 
+// ── Expense edit/delete ───────────────────────────────────────
+let expEditId=null,expEditDk=null,expEditCat='other';
+function openExpEditModal(id,dk){
+  const exps=ls('expenses:'+dk)||[];
+  const exp=exps.find(e=>e.id==id);
+  if(!exp)return;
+  expEditId=id;expEditDk=dk;expEditCat=exp.cat||'other';
+  document.getElementById('ee-desc').value=exp.desc||'';
+  document.getElementById('ee-amt').value=parseFloat(exp.amt).toFixed(2);
+  renderEeCatGrid();
+  document.getElementById('exp-edit-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('ee-desc').select(),80);
+}
+function renderEeCatGrid(){
+  const el=document.getElementById('ee-cat-grid');if(!el)return;
+  el.innerHTML=Object.entries(EXP_CATS).map(([catId,c])=>`
+    <button onclick="expEditCat='${catId}';renderEeCatGrid()"
+      style="padding:.45rem .6rem;border-radius:8px;border:1px solid ${catId===expEditCat?c.col:'var(--border)'};background:${catId===expEditCat?c.col+'22':'transparent'};color:${catId===expEditCat?c.col:'var(--t2)'};font-size:12px;cursor:pointer;text-align:left;font-family:inherit;transition:all .15s">
+      ${c.emoji} ${c.l}
+    </button>`).join('');
+}
+function closeExpEditModal(){
+  document.getElementById('exp-edit-modal').classList.remove('open');
+  expEditId=null;expEditDk=null;
+}
+function saveExpEdit(){
+  if(!expEditId||!expEditDk)return;
+  const desc=document.getElementById('ee-desc').value.trim();
+  const amt=parseFloat(document.getElementById('ee-amt').value)||0;
+  if(!desc||!amt)return;
+  const dk=expEditDk;
+  const exps=ls('expenses:'+dk)||[];
+  const idx=exps.findIndex(e=>e.id==expEditId);
+  if(idx>-1){exps[idx]={...exps[idx],desc,amt:amt.toFixed(2),cat:expEditCat};lss('expenses:'+dk,exps);}
+  closeExpEditModal();
+  if(dk===viewDate){expenses=exps;renderToday();}
+  renderBreakdown();
+}
+function deleteExpFromModal(){
+  if(!expEditId||!expEditDk)return;
+  const dk=expEditDk;
+  const exps=(ls('expenses:'+dk)||[]).filter(e=>e.id!=expEditId);
+  lss('expenses:'+dk,exps);
+  closeExpEditModal();
+  if(dk===viewDate){expenses=exps;renderToday();}
+  renderBreakdown();
+}
+function deleteExpAny(id,dk,ev){
+  if(ev){ev.stopPropagation();}
+  const exps=(ls('expenses:'+dk)||[]).filter(e=>e.id!=id);
+  lss('expenses:'+dk,exps);
+  if(dk===viewDate){expenses=exps;renderToday();}
+  renderBreakdown();
+}
+
 // ── Breakdown tab ────────────────────────────────────────────
 let bkView='monthly';
 let bkDate=TODAY;
@@ -1685,7 +1759,7 @@ function renderBkDaily(){
   if(!exps.length){listEl.innerHTML='<div class="empty-state">No expenses on this day.</div>';return;}
   listEl.innerHTML='<div class="mo-day-list" style="border-radius:var(--rl);overflow:hidden;margin-bottom:1rem">'+exps.map(e=>{
     const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;
-    return`<div class="mo-exp-row"><div class="mo-exp-cat-dot" style="background:${c.col}"></div><span class="mo-exp-desc">${e.desc}</span><span class="mo-exp-cat-lbl" style="background:${c.col}22;color:${c.col}">${c.emoji} ${c.l}</span><span class="mo-exp-amt">-${formatMoney(parseFloat(e.amt))}</span></div>`;
+    return`<div class="mo-exp-row" onclick="openExpEditModal(${e.id},'${bkDate}')" style="cursor:pointer"><div class="mo-exp-cat-dot" style="background:${c.col}"></div><span class="mo-exp-desc">${e.desc}</span><span class="mo-exp-cat-lbl" style="background:${c.col}22;color:${c.col}">${c.emoji} ${c.l}</span><span class="mo-exp-amt">-${formatMoney(parseFloat(e.amt))}</span><button class="exp-del" onclick="deleteExpAny(${e.id},'${bkDate}',event)"><i class="ti ti-x"></i></button></div>`;
   }).join('')+'</div>';
 }
 
@@ -1743,7 +1817,7 @@ function renderBkWeekly(){
   listEl.innerHTML=days.map(day=>{
     if(!day.exps.length&&!day.earned)return'';
     const dayName=`${WDAYS[day.d.getDay()]}, ${MSHORT[day.d.getMonth()]} ${day.d.getDate()}`;
-    return`<div class="mo-day-group"><div class="mo-day-hdr"><span>${dayName}</span><span style="font-family:var(--mono);font-weight:600;color:var(--red)">${day.spent>0?'-'+formatMoney(day.spent):'$0.00'}</span></div><div class="mo-day-list">${day.exps.length?day.exps.map(e=>{const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;return`<div class="mo-exp-row"><div class="mo-exp-cat-dot" style="background:${c.col}"></div><span class="mo-exp-desc">${e.desc}</span><span class="mo-exp-cat-lbl" style="background:${c.col}22;color:${c.col}">${c.emoji} ${c.l}</span><span class="mo-exp-amt">-${formatMoney(parseFloat(e.amt))}</span></div>`;}).join(''):'<div style="padding:.5rem .85rem;font-size:12px;color:var(--t3)">No expenses</div>'}</div></div>`;
+    return`<div class="mo-day-group"><div class="mo-day-hdr"><span>${dayName}</span><span style="font-family:var(--mono);font-weight:600;color:var(--red)">${day.spent>0?'-'+formatMoney(day.spent):'$0.00'}</span></div><div class="mo-day-list">${day.exps.length?day.exps.map(e=>{const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;return`<div class="mo-exp-row" onclick="openExpEditModal(${e.id},'${day.dk}')" style="cursor:pointer"><div class="mo-exp-cat-dot" style="background:${c.col}"></div><span class="mo-exp-desc">${e.desc}</span><span class="mo-exp-cat-lbl" style="background:${c.col}22;color:${c.col}">${c.emoji} ${c.l}</span><span class="mo-exp-amt">-${formatMoney(parseFloat(e.amt))}</span><button class="exp-del" onclick="deleteExpAny(${e.id},'${day.dk}',event)"><i class="ti ti-x"></i></button></div>`;}).join(''):'<div style="padding:.5rem .85rem;font-size:12px;color:var(--t3)">No expenses</div>'}</div></div>`;
   }).join('');
 }
 
@@ -1937,11 +2011,12 @@ function renderMonthly(){
           <div class="mo-day-list">
             ${exps.map(e=>{
               const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;
-              return`<div class="mo-exp-row" onclick="editExpCat(${e.id},'${dk}')" style="cursor:pointer">
+              return`<div class="mo-exp-row" onclick="openExpEditModal(${e.id},'${dk}')" style="cursor:pointer">
                 <div class="mo-exp-cat-dot" style="background:${c.col}"></div>
                 <span class="mo-exp-desc">${e.desc}</span>
                 <span class="mo-exp-cat-lbl" style="background:${c.col}22;color:${c.col}">${c.emoji} ${c.l}</span>
                 <span class="mo-exp-amt">-${formatMoney(parseFloat(e.amt))}</span>
+                <button class="exp-del" onclick="deleteExpAny(${e.id},'${dk}',event)"><i class="ti ti-x"></i></button>
               </div>`;
             }).join('')}
           </div>
