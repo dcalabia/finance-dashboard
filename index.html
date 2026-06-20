@@ -426,6 +426,7 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
         <div class="slbl" style="margin-bottom:.75rem">Spending by category</div>
         <div id="bk-daily-chart-body" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center"></div>
       </div>
+      <div id="nec-chart-daily" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;margin-bottom:1.25rem"></div>
       <div class="slbl">Expenses</div>
       <div id="bk-daily-list"></div>
     </div>
@@ -446,6 +447,7 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
         <div class="slbl" style="margin-bottom:.75rem">Spending by category</div>
         <div id="bk-weekly-chart-body" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center"></div>
       </div>
+      <div id="nec-chart-weekly" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;margin-bottom:1.25rem"></div>
       <div class="slbl">Daily breakdown</div>
       <div id="bk-weekly-list"></div>
     </div>
@@ -466,6 +468,7 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
         <div class="slbl" style="margin-bottom:.75rem">Spending by category</div>
         <div id="mo-chart-body" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center"></div>
       </div>
+      <div id="nec-chart-monthly" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;margin-bottom:1.25rem"></div>
       <div class="slbl">All expenses</div>
       <div id="mo-expense-list"></div>
     </div>
@@ -486,6 +489,7 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
         <div class="slbl" style="margin-bottom:.75rem">Spending by category</div>
         <div id="bk-annual-chart-body" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center"></div>
       </div>
+      <div id="nec-chart-annual" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem;margin-bottom:1.25rem"></div>
       <div class="slbl">Monthly breakdown</div>
       <div id="bk-annual-list"></div>
     </div>
@@ -592,6 +596,13 @@ details summary{font-size:12px;color:var(--t2);cursor:pointer;padding:.4rem .7re
     <div class="modal-title">Edit expense</div>
     <div class="field"><label>Description</label><input id="ee-desc" placeholder="What did you spend on?" onkeydown="if(event.key==='Enter')saveExpEdit()"></div>
     <div class="field"><label>Amount ($)</label><input id="ee-amt" type="number" placeholder="0.00" step="0.01" min="0"></div>
+    <div class="field">
+      <label>Necessary?</label>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <button id="ee-nec-yes" onclick="setExpNec(true)" style="flex:1;padding:.45rem;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:13px;cursor:pointer;transition:all .15s;font-family:inherit">✅ Necessary</button>
+        <button id="ee-nec-no" onclick="setExpNec(false)" style="flex:1;padding:.45rem;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:13px;cursor:pointer;transition:all .15s;font-family:inherit">🚫 Unnecessary</button>
+      </div>
+    </div>
     <div class="field">
       <label>Category</label>
       <div id="ee-cat-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px"></div>
@@ -1161,9 +1172,11 @@ function renderExpenses(){
   if(!expenses.length){el.innerHTML='<div class="shift-log-empty">No expenses today.</div>';return;}
   el.innerHTML=expenses.map(e=>{
     const c=EXP_CATS[e.cat||'other']||EXP_CATS.other;
+    const necTag=e.necessary===true?'<span style="font-size:10px;padding:1px 5px;border-radius:6px;background:rgba(34,197,94,.15);color:#4ade80;flex-shrink:0">✅</span>':e.necessary===false?'<span style="font-size:10px;padding:1px 5px;border-radius:6px;background:rgba(239,68,68,.12);color:#f87171;flex-shrink:0">🚫</span>':'';
     return`<div class="exp-row" onclick="openExpEditModal(${e.id},'${viewDate}')" style="cursor:pointer">
       <span style="width:8px;height:8px;border-radius:50%;background:${c.col};flex-shrink:0;display:inline-block"></span>
       <span class="exp-desc">${e.desc}</span>
+      ${necTag}
       <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:${c.col}22;color:${c.col};white-space:nowrap">${c.emoji} ${c.l}</span>
       <span class="exp-amt">-${formatMoney(parseFloat(e.amt))}</span>
       <button class="exp-del" onclick="deleteExpAny(${e.id},'${viewDate}',event)"><i class="ti ti-x"></i></button>
@@ -1635,13 +1648,23 @@ function renderGoals(){
 
 // ── Expense edit/delete ───────────────────────────────────────
 let expEditId=null,expEditDk=null,expEditCat='other';
+let expEditNec=null;
+function setExpNec(val){
+  expEditNec=val;
+  const yes=document.getElementById('ee-nec-yes');
+  const no=document.getElementById('ee-nec-no');
+  if(yes){yes.style.background=val===true?'rgba(34,197,94,.2)':'transparent';yes.style.borderColor=val===true?'#22c55e':'var(--border)';yes.style.color=val===true?'#4ade80':'var(--t2)';}
+  if(no){no.style.background=val===false?'rgba(239,68,68,.15)':'transparent';no.style.borderColor=val===false?'#ef4444':'var(--border)';no.style.color=val===false?'#f87171':'var(--t2)';}
+}
 function openExpEditModal(id,dk){
   const exps=ls('expenses:'+dk)||[];
   const exp=exps.find(e=>e.id==id);
   if(!exp)return;
   expEditId=id;expEditDk=dk;expEditCat=exp.cat||'other';
+  expEditNec=exp.necessary??null;
   document.getElementById('ee-desc').value=exp.desc||'';
   document.getElementById('ee-amt').value=parseFloat(exp.amt).toFixed(2);
+  setExpNec(expEditNec);
   renderEeCatGrid();
   document.getElementById('exp-edit-modal').classList.add('open');
   setTimeout(()=>document.getElementById('ee-desc').select(),80);
@@ -1666,7 +1689,7 @@ function saveExpEdit(){
   const dk=expEditDk;
   const exps=ls('expenses:'+dk)||[];
   const idx=exps.findIndex(e=>e.id==expEditId);
-  if(idx>-1){exps[idx]={...exps[idx],desc,amt:amt.toFixed(2),cat:expEditCat};lss('expenses:'+dk,exps);}
+  if(idx>-1){exps[idx]={...exps[idx],desc,amt:amt.toFixed(2),cat:expEditCat,necessary:expEditNec};lss('expenses:'+dk,exps);}
   closeExpEditModal();
   if(dk===viewDate){expenses=exps;renderToday();}
   renderBreakdown();
@@ -1755,6 +1778,7 @@ function renderBkDaily(){
   if(chartEl&&catData.length){
     chartEl.innerHTML=`<div style="flex-shrink:0">${buildPie(catData,spent,160)}</div><div class="mo-legend">${catData.map(c=>`<div class="mo-legend-row"><div class="mo-legend-dot" style="background:${c.col}"></div><span class="mo-legend-lbl">${c.emoji} ${c.l}</span><span class="mo-legend-pct">${spent?Math.round(c.val/spent*100):0}%</span><span class="mo-legend-amt">${formatMoney(c.val)}</span></div>`).join('')}</div>`;
   }
+  renderNecChart(exps,'nec-chart-daily');
   const listEl=document.getElementById('bk-daily-list');
   if(!listEl)return;
   if(!exps.length){listEl.innerHTML='<div class="empty-state">No expenses on this day.</div>';return;}
@@ -1812,6 +1836,7 @@ function renderBkWeekly(){
     if(!catData.length){chartEl.innerHTML='<div style="text-align:center;color:var(--t3);font-size:13px;padding:1.5rem">No expenses this week.</div>';}
     else{chartEl.innerHTML=`<div style="flex-shrink:0">${buildPie(catData,totalSpent,160)}</div><div class="mo-legend">${catData.map(c=>`<div class="mo-legend-row"><div class="mo-legend-dot" style="background:${c.col}"></div><span class="mo-legend-lbl">${c.emoji} ${c.l}</span><span class="mo-legend-pct">${totalSpent?Math.round(c.val/totalSpent*100):0}%</span><span class="mo-legend-amt">${formatMoney(c.val)}</span></div>`).join('')}</div>`;}
   }
+  renderNecChart(days.flatMap(d=>d.exps),'nec-chart-weekly');
   const listEl=document.getElementById('bk-weekly-list');
   if(!listEl)return;
   if(!days.some(d=>d.exps.length||d.earned)){listEl.innerHTML='<div class="empty-state">No data this week.</div>';return;}
@@ -1855,12 +1880,12 @@ function renderBkAnnually(){
     {v:'-'+formatMoney(totalSpent),l:'Spent',c:'var(--red)'},
     {v:(net>=0?'+':'')+formatMoney(net),l:'Net',c:net>=0?'#4ade80':'var(--red)'},
   ].map(s=>`<div class="mo-sum-card"><div class="mo-sum-val" style="color:${s.c}">${s.v}</div><div class="mo-sum-lbl">${s.l}</div></div>`).join('');
-  const catTotals={};
+  const catTotals={};const allAnnualExp=[];
   for(let m=1;m<=12;m++){
     const dim=new Date(bkAnnualYear,m,0).getDate();
     for(let d=1;d<=dim;d++){
       const dk=`${bkAnnualYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      (ls('expenses:'+dk)||[]).forEach(e=>{const cat=e.cat||'other';catTotals[cat]=(catTotals[cat]||0)+(parseFloat(e.amt)||0);});
+      (ls('expenses:'+dk)||[]).forEach(e=>{const cat=e.cat||'other';catTotals[cat]=(catTotals[cat]||0)+(parseFloat(e.amt)||0);allAnnualExp.push(e);});
     }
   }
   const catData=Object.entries(catTotals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([id,val])=>({id,val,...EXP_CATS[id]||EXP_CATS.other}));
@@ -1869,6 +1894,7 @@ function renderBkAnnually(){
     if(!catData.length){chartEl.innerHTML='<div style="text-align:center;color:var(--t3);font-size:13px;padding:1.5rem">No expenses this year.</div>';}
     else{chartEl.innerHTML=`<div style="flex-shrink:0">${buildPie(catData,totalSpent,160)}</div><div class="mo-legend">${catData.map(c=>`<div class="mo-legend-row"><div class="mo-legend-dot" style="background:${c.col}"></div><span class="mo-legend-lbl">${c.emoji} ${c.l}</span><span class="mo-legend-pct">${totalSpent?Math.round(c.val/totalSpent*100):0}%</span><span class="mo-legend-amt">${formatMoney(c.val)}</span></div>`).join('')}</div>`;}
   }
+  renderNecChart(allAnnualExp,'nec-chart-annual');
   const listEl=document.getElementById('bk-annual-list');
   if(!listEl)return;
   const maxSpent=Math.max(...months.map(m=>m.spent),1);
@@ -1990,6 +2016,7 @@ function renderMonthly(){
     }
   }
 
+  renderNecChart(allExp,'nec-chart-monthly');
   // Full expense list grouped by day (newest first)
   const listEl=document.getElementById('mo-expense-list');
   if(listEl){
@@ -2025,6 +2052,48 @@ function renderMonthly(){
       }).join('');
     }
   }
+}
+
+function renderNecChart(exps, elId){
+  const el=document.getElementById(elId);if(!el)return;
+  const tagged=exps.filter(e=>e.necessary===true||e.necessary===false);
+  if(!tagged.length){el.style.display='none';return;}
+  const nec=tagged.filter(e=>e.necessary===true).reduce((s,e)=>s+(parseFloat(e.amt)||0),0);
+  const unnec=tagged.filter(e=>e.necessary===false).reduce((s,e)=>s+(parseFloat(e.amt)||0),0);
+  const total=nec+unnec;
+  const data=[
+    {val:unnec,col:'#ef4444',label:'🚫 Unnecessary'},
+    {val:nec,col:'#22c55e',label:'✅ Necessary'},
+  ].filter(d=>d.val>0);
+  const pct=total?Math.round(unnec/total*100):0;
+  const pie=buildPieNec(data,total,140,unnec,pct);
+  el.style.display='block';
+  el.innerHTML=`<div class="slbl" style="margin-bottom:.75rem">Necessary vs Unnecessary</div>
+    <div style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;justify-content:center">
+      <div style="flex-shrink:0">${pie}</div>
+      <div class="mo-legend">
+        ${data.map(d=>`<div class="mo-legend-row"><div class="mo-legend-dot" style="background:${d.col}"></div><span class="mo-legend-lbl">${d.label}</span><span class="mo-legend-pct">${total?Math.round(d.val/total*100):0}%</span><span class="mo-legend-amt" style="color:${d.col}">${formatMoney(d.val)}</span></div>`).join('')}
+        ${exps.length-tagged.length>0?`<div style="font-size:10px;color:var(--t3);margin-top:4px">${exps.length-tagged.length} expense${exps.length-tagged.length>1?'s':''} not tagged</div>`:''}
+      </div>
+    </div>`;
+}
+function buildPieNec(data,total,size,unnec,pct){
+  if(!total)return'';
+  const cx=size/2,cy=size/2,r=size/2-8,ir=r*0.48;
+  const toRad=a=>(a-90)*Math.PI/180;
+  let angle=0;
+  const slices=data.map(d=>{const sweep=d.val/total*360;const s={...d,start:angle,end:angle+sweep};angle+=sweep;return s;});
+  const paths=slices.map(s=>{
+    const s1x=cx+r*Math.cos(toRad(s.start)),s1y=cy+r*Math.sin(toRad(s.start));
+    const e1x=cx+r*Math.cos(toRad(s.end-0.01)),e1y=cy+r*Math.sin(toRad(s.end-0.01));
+    const s2x=cx+ir*Math.cos(toRad(s.end-0.01)),s2y=cy+ir*Math.sin(toRad(s.end-0.01));
+    const e2x=cx+ir*Math.cos(toRad(s.start)),e2y=cy+ir*Math.sin(toRad(s.start));
+    const large=s.end-s.start>180?1:0;
+    return`<path d="M ${s1x.toFixed(2)} ${s1y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e1x.toFixed(2)} ${e1y.toFixed(2)} L ${s2x.toFixed(2)} ${s2y.toFixed(2)} A ${ir} ${ir} 0 ${large} 0 ${e2x.toFixed(2)} ${e2y.toFixed(2)} Z" fill="${s.col}" stroke="var(--bg)" stroke-width="1.5"/>`;
+  }).join('');
+  const centre=`<text x="${cx}" y="${cy-4}" text-anchor="middle" fill="#f87171" font-size="13" font-weight="700" font-family="monospace">-${formatMoney(unnec)}</text>
+    <text x="${cx}" y="${cy+12}" text-anchor="middle" fill="var(--t3)" font-size="10" font-family="system-ui">unnecessary</text>`;
+  return`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}${centre}</svg>`;
 }
 
 function buildPie(data, total, size){
